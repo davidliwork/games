@@ -1,6 +1,92 @@
 
 var game = new Phaser.Game(288, 505, Phaser.CANVAS, 'game');
 
+var SMGameInstant = {
+    context: {
+        //Game Lifecycle start.
+        onStartGame: function (responseCallback) {
+            console.log("responseData is :onStartGame");
+            callNativeHandle("onStartGame", {'param': ''}, function (responseData) {
+                console.log("responseData is :" + responseData);
+                if (responseData) {
+                    responseCallback(responseData);
+                }
+            });
+        },
+        onGameOver: function () {
+            console.log("responseData is :gameOver");
+            callNativeHandle("onGameOver", {'param': ''}, function (responseData) {
+                console.log("responseData is :" + responseData);
+            });
+        },
+        onPauseGame: function () {
+            callNativeHandle("onPauseGame", {'param': ''}, function (responseData) {
+                console.log("responseData is :" + responseData);
+            });
+        },
+        onResumeGame: function () {
+            callNativeHandle("onResumeGame", {'param': ''}, function (responseData) {
+                console.log("responseData is :" + responseData);
+            });
+        },
+        //Game Lifecycle end.
+
+        //------------------------------------------------------------------------------------------
+        actionLogcat: function (logs) {
+            //call native method
+            callNativeHandle('actionLogcat', {
+                logs
+            }, function (responseData) {});
+        },
+
+        actionGameExtraInfo: function (type, responseCallback) {
+            callNativeHandle("actionGameExtraInfo", {'param': type}, function(responseData){
+                console.log("responseData is :" + responseData);
+                if (responseData) {
+                    responseCallback(responseData);
+                }
+            });
+        },
+
+        onInitialize : function (cpKey, gameId, responseCallback) {
+            console.log("responseData is :onInitialize");
+            callNativeHandle("onInitialize", {'cpKey': cpKey, 'gameId' : gameId}, function(responseData){
+                console.log("responseData is :" + responseData);
+                if (responseData) {
+                    responseCallback(responseData);
+                }
+            });
+        },
+
+        actionLoadAd : function(adType, gameScene, responseCallback){
+            callNativeHandle("actionLoadAd", {'adType': adType, 'gameScene': gameScene}, function(responseData){
+                console.log("responseData is :" + responseData);
+                if (responseData) {
+                    responseCallback(responseData);
+                }
+            });
+        },
+
+        actionHasAd : function(adType, gameScene, responseCallback) {
+            callNativeHandle("actionHasAd", {'adType': adType, 'gameScene' : gameScene}, function(responseData){
+                console.log("responseData is :" + responseData);
+                if (responseData) {
+                    responseCallback(responseData);
+                }
+            });
+        },
+
+        actionShowAd : function(adType, gameScene, responseCallback) {
+            callNativeHandle("actionShowAd", {'adType': adType, 'gameScene': gameScene}, function(responseData){
+                console.log("responseData is :" + responseData);
+                if (responseData) {
+                    responseCallback(responseData);
+                }
+            });
+        }
+    }
+};
+
 game.States = {};
 
 game.States.boot = function() {
@@ -93,6 +179,9 @@ game.States.play = function() {
         game.time.events.loop(900, this.generatePipes, this);
         game.time.events.stop(false);
         game.input.onDown.addOnce(this.startGame, this);
+        SMGameInstant.context.onInitialize("flappybird","2",function () {
+            console.log("onInitialize");
+        })
     };
     this.update = function() {
         if(!this.hasStarted) return;
@@ -128,6 +217,7 @@ game.States.play = function() {
         this.playTip.destroy();
         game.input.onDown.add(this.fly, this);
         game.time.events.start();
+        SMGameInstant.context.onStartGame()
     };
     this.stopGame = function() {
 		this.bg.stopScroll();
@@ -180,6 +270,7 @@ game.States.play = function() {
 		scoreboard.anchor.setTo(0.5, 0);
 		replayBtn.anchor.setTo(0.5, 0);
 		this.gameOverGroup.y = 30;
+        SMGameInstant.context.onGameOver();
 	};
     this.resetPipe = function(topPipeY, bottomPipeY) {
         var i = 0;
@@ -212,3 +303,72 @@ game.state.add('menu', game.States.menu);
 game.state.add('play', game.States.play);
 
 game.state.start('boot');
+
+//JavaScript call Java Native mehtod.
+function callNativeHandle(handleName, data, responseCallback) {
+    if(window.WebViewJavascriptBridge && window.WebViewJavascriptBridge.callHandler){
+        window.WebViewJavascriptBridge.callHandler(handleName, data, function (responseData) {
+            if (responseData) {
+                responseCallback(responseData);
+            }
+        });
+    }
+}
+
+//the method is connect webview JavaScript Bridge.
+function connectWebViewJavascriptBridge(callback) {
+    if (window.WebViewJavascriptBridge) {
+        callback(WebViewJavascriptBridge)
+    } else {
+        document.addEventListener(
+            'WebViewJavascriptBridgeReady',
+            function () {
+                callback(WebViewJavascriptBridge)
+            },
+            false
+        );
+    }
+}
+
+connectWebViewJavascriptBridge(function (bridge) {
+    bridge.init(function (message, responseCallback) {
+        console.log('JS got a message', message);
+        var data = {
+            'Javascript Responds': '测试中文!'
+        };
+
+        if (responseCallback) {
+            console.log('JS responding with', data);
+            responseCallback(data);
+        }
+    });
+
+    bridge.registerHandler("functionInJs", function (data, responseCallback) {
+        if (responseCallback) {
+            var responseData = "Javascript Says Right back Kong!";
+            responseCallback(responseData);
+        }
+    });
+
+    bridge.registerHandler("functionInJsOsVersion", function(data, responseCallback) {
+
+        SMGameInstant.context.osversion = data;
+        console.log("osversion:" + SMGameInstant.context.appId);
+
+        if (responseCallback) {
+            var responseData = "Javascript Says osVersion is :" + data;
+            responseCallback(responseData);
+        }
+    });
+
+    bridge.registerHandler("functionInJsAppId", function(data, responseCallback) {
+
+        SMGameInstant.context.appId = data;
+        console.log("appId:" + SMGameInstant.context.appId);
+
+        if (responseCallback) {
+            var responseData = "Javascript Says appid is :" + data;
+            responseCallback(responseData);
+        }
+    });
+})
